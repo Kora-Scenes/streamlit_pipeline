@@ -4,39 +4,56 @@ import torch
 from PIL import Image
 import glob
 import zipfile
+import yaml
 
 def main():
     st.title('Test Predict YoloV5')
     imgs = st.file_uploader("Choose Images")
+
+
+    if imgs:
+        params = yaml.safe_load(open('params.yaml'))['prepare']
+        update_count = {'prepare':{'count':params['count']+1}}
+        yaml.dump(update_count,open('params.yaml','w'))
+
+
+        for ff in os.listdir('buffer'):
+            os.remove(f'buffer/{ff}')
     
-    if 'dcount' not in st.session_state:
-        st.session_state['dcount'] = 0
+        with open(f'buffer/dataset{params["count"]+1}.zip', "wb") as f:
+            f.write(imgs.getbuffer())
 
-    if not imgs:
-        return
         
-    with zipfile.ZipFile(imgs,"r") as zipf:
-        st.session_state['dcount'] += 1
-        zipf.extractall("dataset/v{}".format(st.session_state['dcount']))
 
-    imgname = os.listdir("dataset/v{}".format(st.session_state['dcount']))
-    preds = glob.glob("dataset/v{}/*.*".format(st.session_state['dcount']), recursive=True)
+        if not os.system("dvc repro"):
+            imgname = os.listdir("data/store/v{}/predictions".format(params["dcount"]+1))
+            preds = glob.glob("data/store/v{}/predictions/*.*".format(params["dcount"]+1), recursive=True)
+            for index,im in enumerate(preds):
+                st.image(im, imgname[index])
+            print('done')
+    
+    else: 
+        return 
 
-    results = model(preds)
+
+
+    # imgname = os.listdir("dataset/v{}".format(st.session_state['dcount']))
+    # preds = glob.glob("dataset/v{}/*.*".format(st.session_state['dcount']), recursive=True)
+
+    # results = model(preds)
     # results.imgs
-    results.render()
-    os.mkdir("output/v{}".format(st.session_state['dcount']))
-    for index,im in enumerate(results.imgs):
+    # results.render()
+    # os.mkdir("output/v{}".format(st.session_state['dcount']))
+    # for index,im in enumerate(results.imgs):
         
-        img = Image.fromarray(im)
-        img.save('output/v{}/{}'.format(st.session_state['dcount'], imgname[index]))
+    #     img = Image.fromarray(im)
+    #     img.save('output/v{}/{}'.format(st.session_state['dcount'], imgname[index]))
 
-        st.image('output/v{}/{}'.format(st.session_state['dcount'], imgname[index]))
+    #     st.image('output/v{}/{}'.format(st.session_state['dcount'], imgname[index]))
 
-    st.button('Predict')
+    # st.button('Predict')
 
-dcount = 0
 if __name__ == '__main__':
-    model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True, _verbose=False)
-    model.classes = [0]
+    # model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True, _verbose=False)
+    # model.classes = [0]
     main()
